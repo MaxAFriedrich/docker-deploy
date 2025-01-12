@@ -160,14 +160,18 @@ def config_boxes_to_backend_map_boxes(boxes: list[config_lib.Box]) -> list[Box]:
         service_ids = set()
         services = []
         for service in box.services:
+            next_id = generate_id(service_ids, service.name)
+            service_ids.add(next_id)
             services.append(Service(
-                id=generate_id(service_ids, box.name),
+                id=next_id,
                 name=service.name,
                 description=service.description,
                 proxy=service.protocol
             ))
+        next_id = generate_id(box_ids, box.name)
+        box_ids.add(next_id)
         backend_map_boxes.append(Box(
-            id=generate_id(box_ids, "box"),
+            id=next_id,
             name=box.name,
             services=services
         ))
