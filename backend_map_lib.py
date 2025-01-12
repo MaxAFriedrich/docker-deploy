@@ -105,8 +105,8 @@ class BackendMap:
     def to_dict(self):
         return {
             "lb_endpoint": self.lb_endpoint,
-            "layout": self.layout,
-            "backends": self.backends
+            "layout": [box.to_dict() for box in self.layout],
+            "backends": [backend.to_dict() for backend in self.backends]
         }
 
     @classmethod

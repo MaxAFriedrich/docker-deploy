@@ -26,16 +26,10 @@ class Output:
 
 
 @dataclass
-class Target:
-    dir: str
-    docker_file: str
-
-
-@dataclass
 class Config:
     version: int
     output: Output
-    target: Target
+    target: str
     lb_endpoint: str
     boxes: list[Box]
 
@@ -51,10 +45,7 @@ def load_config(file_path: str) -> Config:
                 max_port=data['output']['max_port'],
                 interface_ip=data['output']['interface_ip']
             ),
-            target=Target(
-                dir=data['target']['dir'],
-                docker_file=data['target']['docker_file']
-            ),
+            target=data['target'],
             lb_endpoint=data['lb_endpoint'],
             boxes=[Box(name=box['name'],
                        services=[Service(**service) for service in

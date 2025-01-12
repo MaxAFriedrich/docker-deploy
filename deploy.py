@@ -1,6 +1,7 @@
 import argparse
 import logging
 import threading
+from pathlib import Path
 
 import yaml
 
@@ -17,24 +18,28 @@ def deploy_instances(count: int, backend_map: backend_map_lib.BackendMap,
                      config: config_lib.Config) -> backend_map_lib.BackendMap:
     logging.info(f'Deploying {count} instances.')
 
-    next_instance_id = len(backend_map.backends) + 1
+    next_instance_id = max(
+        [int(instance.id) for instance in backend_map.backends] + [0]) + 1
     next_free_port = config.output.min_port
     required_ports = 0
 
+    for box in config.boxes:
+        required_ports += len(box.services)
+
     for instance in backend_map.backends:
-        required_ports = max(required_ports, len(instance.services))
         for service in instance.services:
             port = int(service.host.split(':')[1])
             next_free_port = max(next_free_port, port + 1)
 
-    with open(config.target.docker_file, 'r') as file:
-        docker_file = yaml.safe_load(file)
+    with open(Path(config.target) / 'docker-compose.yml', 'r') as file:
+        docker_file = file.read()
 
     threads = []
     new_backends = []
 
     def deploy_and_collect(*args):
         map_instance = docker.create_deployment(*args)
+        docker.start_deployment(int(map_instance.id))
         new_backends.append(map_instance)
 
     for _ in range(count):
@@ -62,8 +67,7 @@ def deploy_instances(count: int, backend_map: backend_map_lib.BackendMap,
 
 
 def destroy_instance(instance_id, instances: list[backend_map_lib.Instance]) \
-        -> \
-                list[backend_map_lib.Instance]:
+        -> list[backend_map_lib.Instance]:
     logging.info(f'Destroying instance {instance_id}.')
 
     if not (docker.DEPLOY_DIR / instance_id).exists():
@@ -100,7 +104,7 @@ def destroy_all():
     logging.info(f'Completed destruction of all {len(instance_ids)} instances.')
 
 
-def restart_instance(instance_id, docker_file_name: str):
+def restart_instance(instance_id):
     logging.info(f'Restarting instance {instance_id}.')
 
     if not (docker.DEPLOY_DIR / instance_id).exists():
@@ -108,11 +112,10 @@ def restart_instance(instance_id, docker_file_name: str):
         return
 
     docker.stop_deployment(instance_id)
-    docker.start_deployment(instance_id,
-                            docker.DEPLOY_DIR / instance_id / docker_file_name)
+    docker.start_deployment(instance_id)
 
 
-def restart_all(docker_file_name: str):
+def restart_all():
     logging.info('Restarting all instances.')
     instance_ids = all_running_instances()
 
@@ -121,7 +124,7 @@ def restart_all(docker_file_name: str):
     for instance_id in instance_ids:
         logging.info(f'Starting restart of instance {instance_id}.')
         thread = threading.Thread(target=restart_instance,
-                                  args=(instance_id, docker_file_name,))
+                                  args=(instance_id,))
         threads.append(thread)
         thread.start()
 
@@ -180,9 +183,9 @@ def main():
         backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
     elif args.command == 'restart':
         if args.target == 'all':
-            restart_all(config.target.docker_file)
+            restart_all()
         else:
-            restart_instance(args.target, config.target.docker_file)
+            restart_instance(args.target)
 
 
 if __name__ == '__main__':

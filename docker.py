@@ -107,13 +107,15 @@ def adapt_docker_compose(
 def create_deployment(
         config: config_lib.Config,
         backend_map: backend_map_lib.BackendMap,
-        docker_file: dict,
+        docker_file: str,
         instance_id: int,
         start_port: int,
 ) -> backend_map_lib.Instance:
+    docker_file = yaml.safe_load(docker_file)
+
     target_dir = DEPLOY_DIR / str(instance_id)
 
-    shutil.copytree(config.target.dir, target_dir)
+    shutil.copytree(config.target, target_dir)
 
     docker_file, instance_services = adapt_docker_compose(
         start_port,
@@ -123,7 +125,7 @@ def create_deployment(
         docker_file
     )
 
-    with open(target_dir / config.target.docker_file, 'w') as file:
+    with open(target_dir / 'docker-compose.yml', 'w') as file:
         yaml.dump(docker_file, file)
 
     return backend_map_lib.Instance(
@@ -132,24 +134,22 @@ def create_deployment(
     )
 
 
-def start_deployment(instance_id: int, docker_file: str) -> None:
+def start_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "up", "-d", "--build", "--context",
-         str(DEPLOY_DIR / str(instance_id)), "--project-name",
-         f"instance-{instance_id}", "--remove-orphans", "--file",
-         docker_file])
+        ["docker-compose", "up", "-d", "--build", "--force-recreate"],
+        cwd=DEPLOY_DIR / str(instance_id),
+    )
 
 
 def stop_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "down", "--context",
-         str(DEPLOY_DIR / str(instance_id)), "--project-name",
-         f"instance-{instance_id}"])
+        ["docker-compose", "down"], cwd=DEPLOY_DIR / str(instance_id)
+    )
 
 
 def delete_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "rm", "--force", "--stop", "--context",
-         str(DEPLOY_DIR / str(instance_id)), "--project-name",
-         f"instance-{instance_id}"])
+        ["docker-compose", "rm", "--force", "--stop"], cwd=DEPLOY_DIR / str(
+            instance_id)
+    )
     shutil.rmtree(DEPLOY_DIR / str(instance_id))
