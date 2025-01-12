@@ -108,14 +108,15 @@ def create_deployment(
         config: config_lib.Config,
         backend_map: backend_map_lib.BackendMap,
         docker_file: dict,
-        instance_id: int
-) -> None:
+        instance_id: int,
+        start_port: int,
+) -> backend_map_lib.Instance:
     target_dir = DEPLOY_DIR / str(instance_id)
 
     shutil.copytree(config.target.dir, target_dir)
 
-    docker_file = adapt_docker_compose(
-        config.output.min_port,
+    docker_file, instance_services = adapt_docker_compose(
+        start_port,
         config.output.interface_ip,
         backend_map.layout,
         config.boxes,
@@ -124,6 +125,11 @@ def create_deployment(
 
     with open(target_dir / config.target.docker_file, 'w') as file:
         yaml.dump(docker_file, file)
+
+    return backend_map_lib.Instance(
+        id=str(instance_id),
+        services=instance_services
+    )
 
 
 def start_deployment(instance_id: int, docker_file: str) -> None:

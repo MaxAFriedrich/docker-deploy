@@ -79,13 +79,11 @@ class ServiceInstance:
 @dataclass
 class Instance:
     id: str
-    name: str
     services: list[ServiceInstance]
 
     def to_dict(self):
         return {
             "id": self.id,
-            "name": self.name,
             "services": [service.to_dict() for service in self.services]
         }
 
@@ -93,7 +91,6 @@ class Instance:
     def from_dict(cls, data):
         return cls(
             id=data['id'],
-            name=data['name'],
             services=[ServiceInstance.from_dict(service) for service in
                       data['services']]
         )
