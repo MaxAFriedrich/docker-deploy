@@ -1,7 +1,8 @@
 import argparse
 import logging
 
-import yaml
+import backend_map_lib
+import config_lib
 
 # Set up logging
 logging.basicConfig(filename='deploy.log', level=logging.INFO,
@@ -12,6 +13,7 @@ def deploy_instances(count):
     # Placeholder for deploying instances
     logging.info(f'Deploying {count} instances.')
     # Implement deployment logic here
+    # TODO
     pass
 
 
@@ -19,6 +21,7 @@ def destroy_instance(instance_id):
     # Placeholder for destroying a specific instance
     logging.info(f'Destroying instance {instance_id}.')
     # Implement destruction logic here
+    # TODO
     pass
 
 
@@ -26,6 +29,7 @@ def destroy_all():
     # Placeholder for destroying all instances
     logging.info('Destroying all instances.')
     # Implement destruction logic here
+    # TODO
     pass
 
 
@@ -33,6 +37,7 @@ def restart_instance(instance_id):
     # Placeholder for restarting a specific instance
     logging.info(f'Restarting instance {instance_id}.')
     # Implement restart logic here
+    # TODO
     pass
 
 
@@ -40,18 +45,13 @@ def restart_all():
     # Placeholder for restarting all instances
     logging.info('Restarting all instances.')
     # Implement restart logic here
+    # TODO
     pass
 
 
-def save_backend_map():
-    # Placeholder for saving backend map to YAML
-    backend_map = {}  # Replace with actual backend map data
-    with open('backend-map.yml', 'w') as file:
-        yaml.dump(backend_map, file)
-    logging.info('Saved backend map to backend-map.yml.')
-
-
 def main():
+    config = config_lib.load_config('config.yml')
+
     parser = argparse.ArgumentParser(description='Deploy and manage instances.')
 
     subparsers = parser.add_subparsers(dest='command', required=True)
@@ -75,9 +75,10 @@ def main():
 
     args = parser.parse_args()
 
+    backend_map = backend_map_lib.BackendMap(config.lb_endpoint, [])
+
     if args.command == 'deploy':
         deploy_instances(args.count)
-        save_backend_map()
     elif args.command == 'destroy':
         if args.target == 'all':
             destroy_all()
@@ -88,6 +89,8 @@ def main():
             restart_all()
         else:
             restart_instance(args.target)
+
+    backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
 
 
 if __name__ == '__main__':
