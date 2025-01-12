@@ -75,10 +75,16 @@ def main():
 
     args = parser.parse_args()
 
-    backend_map = backend_map_lib.BackendMap(config.lb_endpoint, [])
+    backend_map = backend_map_lib.build_backend_map_base(
+        config.output.backend_map,
+        config.lb_endpoint,
+        config.boxes
+    )
 
     if args.command == 'deploy':
         deploy_instances(args.count)
+        backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
+
     elif args.command == 'destroy':
         if args.target == 'all':
             destroy_all()
@@ -89,8 +95,6 @@ def main():
             restart_all()
         else:
             restart_instance(args.target)
-
-    backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
 
 
 if __name__ == '__main__':

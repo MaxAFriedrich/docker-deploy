@@ -24,10 +24,12 @@ class Output:
     max_port: int
     interface_ip: str
 
+
 @dataclass
 class Target:
     dir: str
     docker_file: str
+
 
 @dataclass
 class Config:
