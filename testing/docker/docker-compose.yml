@@ -1,0 +1,31 @@
+services:
+  wireshark:
+    image: lscr.io/linuxserver/wireshark:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    ports:
+      - 3000:3000
+      - 3001:3001
+    networks:
+      - internal
+
+  nginx:
+    image: nginxdemos/hello
+    ports:
+      - 80
+    networks:
+      - internal
+
+  webserver:
+    build:
+      context: ./webserver
+      dockerfile: Dockerfile
+    ports:
+      - "100.100.100.100:81:80"
+    networks:
+      - internal
+
+networks:
+  internal:
