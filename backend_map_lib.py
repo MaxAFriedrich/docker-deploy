@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 
 import yaml
@@ -119,10 +120,12 @@ class BackendMap:
         )
 
 
-def save_backend_map(backend_map: BackendMap, output_file: str):
+def save_backend_map(backend_map: BackendMap, output_file: str, launch_command: str):
     with open(output_file, 'w') as file:
         yaml.dump(backend_map.to_dict(), file)
     logging.info(f'Backend map saved to {output_file}')
+    os.system(launch_command)
+    logging.info(f'Launch command executed: {launch_command}')
 
 
 def load_backend_map(file_path: str) -> BackendMap:

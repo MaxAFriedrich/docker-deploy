@@ -31,6 +31,7 @@ class Config:
     output: Output
     target: str
     lb_endpoint: str
+    launch_command: str
     boxes: list[Box]
 
 
@@ -47,6 +48,7 @@ def load_config(file_path: str) -> Config:
             ),
             target=data['target'],
             lb_endpoint=data['lb_endpoint'],
+            launch_command=data['launch_command'],
             boxes=[Box(name=box['name'],
                        services=[Service(**service) for service in
                                  box['services']]) for box in data['boxes']]

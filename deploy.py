@@ -3,8 +3,6 @@ import logging
 import threading
 from pathlib import Path
 
-import yaml
-
 import backend_map_lib
 import config_lib
 import docker
@@ -137,6 +135,11 @@ def all_running_instances():
     return instance_ids
 
 
+def print_ids(instances: list[backend_map_lib.Instance]) -> None:
+    for instance in instances:
+        print(instance.id)
+
+
 def main():
     config = config_lib.load_config('config.yml')
 
@@ -161,6 +164,9 @@ def main():
                                 help='Instance ID or "all" to restart all '
                                      'instances')
 
+    # List ids command
+    subparsers.add_parser('ids', help='List all instance IDs')
+
     args = parser.parse_args()
 
     backend_map = backend_map_lib.build_backend_map_base(
@@ -171,7 +177,11 @@ def main():
 
     if args.command == 'deploy':
         backend_map = deploy_instances(args.count, backend_map, config)
-        backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
+        backend_map_lib.save_backend_map(
+            backend_map,
+            config.output.backend_map,
+            config.launch_command
+        )
 
     elif args.command == 'destroy':
         if args.target == 'all':
@@ -180,12 +190,18 @@ def main():
         else:
             backend_map.backends = destroy_instance(args.target,
                                                     backend_map.backends)
-        backend_map_lib.save_backend_map(backend_map, config.output.backend_map)
+        backend_map_lib.save_backend_map(
+            backend_map,
+            config.output.backend_map,
+            config.launch_command
+        )
     elif args.command == 'restart':
         if args.target == 'all':
             restart_all()
         else:
             restart_instance(args.target)
+    elif args.command == 'ids':
+        print_ids(backend_map.backends)
 
 
 if __name__ == '__main__':
