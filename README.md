@@ -7,6 +7,9 @@ This is an implementation of a CyberRange deployment tool that works with my `ba
 The `deploy.py` script allows you to deploy, destroy, and restart instances in a standardized manner. It uses a
 configuration file (`config.yml`) and a backend map file (`backend-map.yml`) to manage the deployment of instances.
 
+You can also use it as a module in your own scripts to deploy instances programmatically. Or, run it using the command
+`poetry run python3 -m docker_deploy <command> <args>`.
+
 ## Usage
 
 **Note:** This project uses Poetry for dependency management. Make sure you have Poetry installed and use the following
@@ -19,6 +22,7 @@ The script supports the following commands:
 - `destroy <instance-id>`: Destroys the specified instance.
 - `restart <instance-id>`: Restarts the specified instance.
 - `restart all`: Restarts all instances.
+- `ids`: Lists the IDs of all instances (one per line).
 
 These commands are the standard set of commands that my spec allows for.
 
@@ -36,17 +40,22 @@ These commands are the standard set of commands that my spec allows for.
 
 - `destroy <instance-id>`: Destroys the specified instance.
   ```sh
-  poetry run python3 deploy.py destroy <instance-id>
+  poetry run python3 -m docker_deploy destroy <instance-id>
   ```
 
 - `restart <instance-id>`: Restarts the specified instance.
   ```sh
-  poetry run python3 deploy.py restart <instance-id>
+  poetry run python3  -m docker_deploy restart <instance-id>
   ```
 
 - `restart all`: Restarts all instances.
   ```sh
-  poetry run python3 deploy.py restart all
+  poetry run python3 -m docker_deploy restart all
+  ```
+  
+- `ids`: Lists the IDs of all instances.
+  ```sh
+  poetry run python3 -m docker_deploy ids
   ```
 
 ## Features
@@ -65,6 +74,12 @@ The script expects a `config.yml` file in the current directory. The configurati
 - `version`: The version of the configuration file (should be `1`).
 - `target`: The directory to pull the docker config files from.
 - `lb_endpoint`: The endpoint of the load balancer.
+- `launch_command`:
+    - `context`: The directory to run the launch command from.
+    - `command`: The command to run to launch the instance.
+- `stop_command`:
+    - `context`: The directory to run the stop command from.
+    - `command`: The command to run to stop the instance.
 - `output`:
     - `backend_map`: The path to write the updated backend map file to.
     - `min_port`: The minimum port number to use for the instances.
@@ -84,6 +99,12 @@ An example configuration file is shown below:
 version: 1
 target: ./testing/docker
 lb_endpoint: http://localhost:8000
+launch_command:
+  context: ./testing/bins
+  command: ./launch.sh
+stop_command:
+  context: ./testing/bins
+  command: ./stop.sh
 output:
   backend_map: ./testing/bins/backend-map.yml
   min_port: 3000
