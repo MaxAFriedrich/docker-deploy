@@ -1,5 +1,5 @@
 import logging
-import os
+import subprocess
 from dataclasses import dataclass
 
 import yaml
@@ -120,11 +120,14 @@ class BackendMap:
         )
 
 
-def save_backend_map(backend_map: BackendMap, output_file: str, launch_command: str):
+def save_backend_map(backend_map: BackendMap, output_file: str,
+                     launch_command: dict[str]):
     with open(output_file, 'w') as file:
         yaml.dump(backend_map.to_dict(), file)
     logging.info(f'Backend map saved to {output_file}')
-    os.system(launch_command)
+
+    subprocess.run(launch_command["command"], cwd=launch_command["context"],
+                   shell=True, check=True)
     logging.info(f'Launch command executed: {launch_command}')
 
 

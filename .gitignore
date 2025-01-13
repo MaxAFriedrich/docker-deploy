@@ -3,3 +3,6 @@ config.yml
 __pycache__
 deployments
 deploy.log
+lb.log
+lb-pid.txt
+session-server-pid.txt

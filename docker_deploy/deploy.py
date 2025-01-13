@@ -1,5 +1,6 @@
 import argparse
 import logging
+import subprocess
 import threading
 from pathlib import Path
 
@@ -195,6 +196,12 @@ def main():
             config.output.backend_map,
             config.launch_command
         )
+
+        if args.target == 'all':
+            subprocess.run(config.stop_command["command"],
+                           cwd=config.stop_command["context"],
+                           shell=True, check=True)
+            logging.info(f"Ran stop command: {config.stop_command}")
     elif args.command == 'restart':
         if args.target == 'all':
             restart_all()
