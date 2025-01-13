@@ -3,9 +3,9 @@ import logging
 import threading
 from pathlib import Path
 
-import backend_map_lib
-import config_lib
-import docker
+from docker_deploy import backend_map_lib
+from docker_deploy import config_lib
+from docker_deploy import docker
 
 # Set up logging
 logging.basicConfig(filename='deploy.log', level=logging.INFO,

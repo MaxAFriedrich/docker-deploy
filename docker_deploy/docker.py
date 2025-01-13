@@ -4,10 +4,10 @@ from pathlib import Path
 
 import yaml
 
-import backend_map_lib
-import config_lib
+from docker_deploy import backend_map_lib
+from docker_deploy import config_lib
 
-DEPLOY_DIR = Path("./deployments")
+DEPLOY_DIR = Path("deployments")
 
 DEPLOY_DIR.mkdir(exist_ok=True)
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import yaml
 
-import config_lib
+from docker_deploy import config_lib
 
 
 @dataclass
