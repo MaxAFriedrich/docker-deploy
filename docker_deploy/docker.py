@@ -8,8 +8,26 @@ from docker_deploy import backend_map_lib
 from docker_deploy import config_lib
 
 DEPLOY_DIR = Path("deployments")
-
 DEPLOY_DIR.mkdir(exist_ok=True)
+
+def load_compose():
+    if shutil.which("docker-compose") is not None:
+        return ["docker-compose"]
+    try:
+        result = subprocess.run(['docker', 'compose', '--version'], 
+                                stdout=subprocess.PIPE, 
+                                stderr=subprocess.PIPE, 
+                                text=True)
+        
+        if result.returncode == 0:
+            return ['docker', 'compose']
+        raise FileNotFoundError("Docker Compose could not be found")
+    
+    except FileNotFoundError:
+        raise FileNotFoundError("Docker Compose could not be found")
+
+
+COMPOSE = load_compose()
 
 
 def no_ports_required(boxes: list[config_lib.Box]) -> int:
@@ -136,20 +154,20 @@ def create_deployment(
 
 def start_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "up", "-d", "--build", "--force-recreate"],
+        COMPOSE + ["up", "-d", "--build", "--force-recreate"],
         cwd=DEPLOY_DIR / str(instance_id),
     )
 
 
 def stop_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "down"], cwd=DEPLOY_DIR / str(instance_id)
+        COMPOSE + ["down"], cwd=DEPLOY_DIR / str(instance_id)
     )
 
 
 def delete_deployment(instance_id: int) -> None:
     subprocess.run(
-        ["docker-compose", "rm", "--force", "--stop"], cwd=DEPLOY_DIR / str(
+        COMPOSE + ["rm", "--force", "--stop"], cwd=DEPLOY_DIR / str(
             instance_id)
     )
     shutil.rmtree(DEPLOY_DIR / str(instance_id))
