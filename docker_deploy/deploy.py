@@ -6,14 +6,25 @@ from pathlib import Path
 from docker_deploy import backend_map_lib
 from docker_deploy import config_lib
 from docker_deploy import docker
+from docker_deploy.ansible_deploy import Play, Playbook, get_hostnames, \
+    next_hostname, get_hosts_for_instance
 
 # Set up logging
 logging.basicConfig(filename='deploy.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def deploy_instances(count: int, backend_map: backend_map_lib.BackendMap,
-                     config: config_lib.Config) -> backend_map_lib.BackendMap:
+# TODO fix logging to be relvent with ansible system
+
+
+def deploy_instances(
+        count: int,
+        backend_map: backend_map_lib.BackendMap,
+        config: config_lib.Config
+) -> (backend_map_lib.BackendMap, list[Play]):
+    plays = []
+    possible_hosts = get_hostnames(config.inventory)
+
     logging.info(f'Deploying {count} instances.')
 
     next_instance_id = max(
@@ -33,33 +44,48 @@ def deploy_instances(count: int, backend_map: backend_map_lib.BackendMap,
         docker_file = file.read()
 
     for _ in range(count):
-        logging.info(f'Starting deployment of instance {next_instance_id}.')
-        map_instance = docker.create_deployment(
+        # logging.info(f'Starting deployment of instance {next_instance_id}.')
+        logging.info(
+            f'Building playbook to deploy instance {next_instance_id}.')
+        map_instance, tasks = docker.create_deployment(
             config,
             backend_map,
             docker_file,
             next_instance_id,
-            next_free_port
+            next_free_port,
+            next_hostname(possible_hosts, backend_map.backends)
         )
-        docker.start_deployment(int(map_instance.id))
+        tasks.extend(docker.start_deployment(int(map_instance.id)))
         backend_map.backends.append(map_instance)
         next_instance_id += 1
         next_free_port += required_ports
+        target_host = next_hostname(possible_hosts, backend_map.backends)
+        plays.append(Play(
+            name=f'Deploy Instance {map_instance.id}',
+            tasks=tasks,
+            hosts=[target_host]
+        ))
 
-    logging.info(f'Completed deployment of {count} instances.')
+    # logging.info(f'Completed deployment of {count} instances.')
+    return backend_map, plays
 
-    return backend_map
 
-
-def destroy_instance(instance_id, instances: list[backend_map_lib.Instance]) \
-        -> list[backend_map_lib.Instance]:
+def destroy_instance(
+        instance_id,
+        instances: list[backend_map_lib.Instance]
+) -> (list[backend_map_lib.Instance], list[Play]):
     logging.info(f'Destroying instance {instance_id}.')
 
-    if not (docker.DEPLOY_DIR / instance_id).exists():
-        logging.error(f'Instance {instance_id} does not exist.')
-        return instances
+    # if not (docker.DEPLOY_DIR / instance_id).exists():
+    #     logging.error(f'Instance {instance_id} does not exist.')
+    #     return instances
 
-    docker.delete_deployment(instance_id)
+    # docker.delete_deployment(instance_id)
+    plays = [Play(
+        name=f'Destroy Instance {instance_id}',
+        tasks=docker.delete_deployment(instance_id),
+        hosts=get_hosts_for_instance(instance_id, instances)
+    )]
 
     for i in range(len(instances)):
         if instances[i].id == instance_id:
@@ -69,44 +95,71 @@ def destroy_instance(instance_id, instances: list[backend_map_lib.Instance]) \
     return instances
 
 
-def destroy_all():
+def destroy_all(instances) -> list[Play]:
     logging.info('Destroying all instances.')
 
-    instance_ids = all_running_instances()
+    instance_ids = [instance.id for instance in instances]
+
+    plays = []
 
     for instance_id in instance_ids:
         logging.info(f'Starting destruction of instance {instance_id}.')
-        docker.delete_deployment(instance_id)
+
+        # docker.delete_deployment(instance_id)
+        plays.append(Play(
+            name=f'Destroy Instance {instance_id}',
+            tasks=docker.delete_deployment(instance_id),
+            hosts=get_hosts_for_instance(instance_id, instances)
+        ))
 
     logging.info(f'Completed destruction of all {len(instance_ids)} instances.')
 
+    return plays
 
-def restart_instance(instance_id):
+
+def restart_instance(instance_id, instances) -> list[Play]:
     logging.info(f'Restarting instance {instance_id}.')
+    tasks = []
+    tasks.extend(docker.stop_deployment(instance_id))
+    tasks.extend(docker.delete_deployment(instance_id))
+    tasks.extend(docker.start_deployment(instance_id))
 
-    if not (docker.DEPLOY_DIR / instance_id).exists():
-        logging.error(f'Instance {instance_id} does not exist.')
-        return
+    plays = [
+        Play(
+            name=f'Stop Instance {instance_id}',
+            tasks=tasks,
+            hosts=get_hosts_for_instance(instance_id, instances)
+        )
+    ]
 
-    docker.stop_deployment(instance_id)
-    docker.start_deployment(instance_id)
+    # if not (docker.DEPLOY_DIR / instance_id).exists():
+    #     logging.error(f'Instance {instance_id} does not exist.')
+    #     return
+
+    # docker.stop_deployment(instance_id)
+    # docker.start_deployment(instance_id)
+
+    return plays
 
 
-def restart_all():
+def restart_all(instances) -> list[Play]:
     logging.info('Restarting all instances.')
-    instance_ids = all_running_instances()
+    plays = []
+    instance_ids = [instance.id for instance in instances]
 
     for instance_id in instance_ids:
         logging.info(f'Starting restart of instance {instance_id}.')
-        restart_instance(instance_id)
+        plays.extend(restart_instance(instance_id, instances))
+
+    return plays
 
 
-def all_running_instances():
-    instance_ids = []
-    for potential_id in docker.DEPLOY_DIR.iterdir():
-        if potential_id.is_dir():
-            instance_ids.append(potential_id.name)
-    return instance_ids
+# def all_running_instances():
+#     instance_ids = []
+#     for potential_id in docker.DEPLOY_DIR.iterdir():
+#         if potential_id.is_dir():
+#             instance_ids.append(potential_id.name)
+#     return instance_ids
 
 
 def print_ids(instances: list[backend_map_lib.Instance]) -> None:
@@ -143,6 +196,14 @@ def main():
 
     args = parser.parse_args()
 
+    plays: list[Play] = [Play(
+        name='Init Deploy Dir',
+        tasks=[
+            docker.init_deployment_dir()
+        ],
+        hosts=['all']
+    )]
+
     backend_map = backend_map_lib.build_backend_map_base(
         config.output.backend_map,
         config.lb_endpoint,
@@ -150,7 +211,13 @@ def main():
     )
 
     if args.command == 'deploy':
-        backend_map = deploy_instances(args.count, backend_map, config)
+        backend_map, deploy_plays = deploy_instances(
+            args.count,
+            backend_map,
+            config
+        )
+        plays.extend(deploy_plays)
+
         backend_map_lib.save_backend_map(
             backend_map,
             config.output.backend_map,
@@ -159,11 +226,15 @@ def main():
 
     elif args.command == 'destroy':
         if args.target == 'all':
-            destroy_all()
+            destroy_plays = destroy_all(backend_map.backends)
             backend_map.backends = []
         else:
-            backend_map.backends = destroy_instance(args.target,
-                                                    backend_map.backends)
+            backend_map.backends, destroy_plays = destroy_instance(
+                args.target,
+                backend_map.backends
+            )
+
+        plays.extend(destroy_plays)
         backend_map_lib.save_backend_map(
             backend_map,
             config.output.backend_map,
@@ -177,11 +248,15 @@ def main():
             logging.info(f"Ran stop command: {config.stop_command}")
     elif args.command == 'restart':
         if args.target == 'all':
-            restart_all()
+            restart_plays = restart_all(backend_map.backends)
         else:
-            restart_instance(args.target)
+            restart_plays = restart_instance(args.target, backend_map.backends)
+        plays.extend(restart_plays)
+
     elif args.command == 'ids':
         print_ids(backend_map.backends)
+
+    Playbook('deploy', plays).run(config.inventory)
 
 
 if __name__ == '__main__':

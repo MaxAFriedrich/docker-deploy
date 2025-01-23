@@ -1,34 +1,40 @@
-import shutil
-import subprocess
+# import shutil
+# import subprocess
 from pathlib import Path
 
 import yaml
 
 from docker_deploy import backend_map_lib
 from docker_deploy import config_lib
+from docker_deploy.ansible_deploy.task import Mkdir, Task, Copy, WriteFile, \
+    DockerCompose, Rm
 
 DEPLOY_DIR = Path("deployments")
-DEPLOY_DIR.mkdir(exist_ok=True)
 
 
-def load_compose():
-    if shutil.which("docker-compose") is not None:
-        return ["docker-compose"]
-    try:
-        result = subprocess.run(['docker', 'compose', '--version'],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                text=True)
-
-        if result.returncode == 0:
-            return ['docker', 'compose']
-        raise FileNotFoundError("Docker Compose could not be found")
-
-    except FileNotFoundError:
-        raise FileNotFoundError("Docker Compose could not be found")
+def init_deployment_dir() -> Task:
+    return Mkdir(name="Create deployment directory",
+                 path="{{ansible_env.HOME}}/deployments")
 
 
-COMPOSE = load_compose()
+# def load_compose():
+#     if shutil.which("docker-compose") is not None:
+#         return ["docker-compose"]
+#     try:
+#         result = subprocess.run(['docker', 'compose', '--version'],
+#                                 stdout=subprocess.PIPE,
+#                                 stderr=subprocess.PIPE,
+#                                 text=True)
+#
+#         if result.returncode == 0:
+#             return ['docker', 'compose']
+#         raise FileNotFoundError("Docker Compose could not be found")
+#
+#     except FileNotFoundError:
+#         raise FileNotFoundError("Docker Compose could not be found")
+#
+#
+# COMPOSE = load_compose()
 
 
 def no_ports_required(boxes: list[config_lib.Box]) -> int:
@@ -129,46 +135,83 @@ def create_deployment(
         docker_file: str,
         instance_id: int,
         start_port: int,
-) -> backend_map_lib.Instance:
+        deploy_host: str
+) -> (backend_map_lib.Instance, list[Task]):
+    tasks = []
     docker_file = yaml.safe_load(docker_file)
 
     target_dir = DEPLOY_DIR / str(instance_id)
 
-    shutil.copytree(config.target, target_dir)
+    tasks.append(Copy(
+        name="Copy target directory",
+        src=config.target,
+        dest=str(target_dir)
+    ))
+
+    if deploy_host == "localhost":
+        deploy_host = "127.0.0.1"
 
     docker_file, instance_services = adapt_docker_compose(
         start_port,
-        config.output.interface_ip,
+        deploy_host,
         backend_map.layout,
         config.boxes,
         docker_file
     )
 
-    with open(target_dir / 'docker-compose.yml', 'w') as file:
-        yaml.dump(docker_file, file)
+    tasks.append(WriteFile(
+        name="Write docker-compose.yml",
+        path=str(target_dir / 'docker-compose.yml'),
+        content=yaml.dump(docker_file)
+    ))
 
     return backend_map_lib.Instance(
         id=str(instance_id),
         services=instance_services
-    )
+    ), tasks
 
 
-def start_deployment(instance_id: int) -> None:
-    subprocess.run(
-        COMPOSE + ["up", "-d", "--build", "--force-recreate"],
-        cwd=DEPLOY_DIR / str(instance_id),
-    )
+def start_deployment(instance_id: int) -> list[Task]:
+    # subprocess.run(
+    #     COMPOSE + ["up", "-d", "--build", "--force-recreate"],
+    #     cwd=DEPLOY_DIR / str(instance_id),
+    # )
+    return [
+        DockerCompose(
+            name="Start deployment",
+            state="started",
+            path=str(DEPLOY_DIR / str(instance_id))
+        )
+    ]
 
 
-def stop_deployment(instance_id: int) -> None:
-    subprocess.run(
-        COMPOSE + ["down"], cwd=DEPLOY_DIR / str(instance_id)
-    )
+def stop_deployment(instance_id: int) -> list[Task]:
+    # subprocess.run(
+    #     COMPOSE + ["down"], cwd=DEPLOY_DIR / str(instance_id)
+    # )
+    return [
+        DockerCompose(
+            name="Stop deployment",
+            state="stopped",
+            path=str(DEPLOY_DIR / str(instance_id))
+        )
+    ]
 
 
-def delete_deployment(instance_id: int) -> None:
-    subprocess.run(
-        COMPOSE + ["rm", "--force", "--stop"], cwd=DEPLOY_DIR / str(
-            instance_id)
-    )
-    shutil.rmtree(DEPLOY_DIR / str(instance_id))
+def delete_deployment(instance_id: int) -> list[Task]:
+    # subprocess.run(
+    #     COMPOSE + ["rm", "--force", "--stop"], cwd=DEPLOY_DIR / str(
+    #         instance_id)
+    # )
+    # shutil.rmtree(DEPLOY_DIR / str(instance_id))
+    return [
+        DockerCompose(
+            name="Delete deployment",
+            state="absent",
+            path=str(DEPLOY_DIR / str(instance_id))
+        ),
+        Rm(
+            name="Delete deployment directory",
+            path=str(DEPLOY_DIR / str(instance_id))
+        )
+    ]

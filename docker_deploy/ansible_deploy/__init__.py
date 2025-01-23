@@ -6,26 +6,17 @@ import yaml
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 
+from docker_deploy.ansible_deploy.task import Task
 from docker_deploy.backend_map_lib import Instance
 
 
-class Task(dict):
-
-    def __init__(self, name: str, action: str, args: dict):
-        super().__init__()
-        self['name'] = name
-        self['action'] = action
-        self['args'] = args
-
-
-# TODO add task classes
-
 class Play(dict):
 
-    def __init__(self, name: str, tasks: list[Task]):
+    def __init__(self, name: str, tasks: list[Task], hosts: list[str]):
         super().__init__()
         self['name'] = name
         self['tasks'] = tasks
+        self['hosts'] = hosts
 
 
 class Playbook(dict):
@@ -72,3 +63,15 @@ def next_hostname(possible_hosts: list[str], backends: list[Instance]):
             backend_counts[host] += 1
 
     return min(backend_counts, key=backend_counts.get)
+
+
+def get_hosts_for_instance(
+        instance_id: int, instances: list[Instance]
+) -> list[str]:
+    hosts = []
+    for instance in instances:
+        if instance.id != instance_id:
+            continue
+        for service in instance.services:
+            hosts.append(service.host.split(':')[0])
+    return hosts
