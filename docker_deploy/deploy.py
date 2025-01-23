@@ -1,7 +1,6 @@
 import argparse
 import logging
 import subprocess
-import threading
 from pathlib import Path
 
 from docker_deploy import backend_map_lib
@@ -33,32 +32,19 @@ def deploy_instances(count: int, backend_map: backend_map_lib.BackendMap,
     with open(Path(config.target) / 'docker-compose.yml', 'r') as file:
         docker_file = file.read()
 
-    threads = []
-    new_backends = []
-
-    def deploy_and_collect(*args):
-        map_instance = docker.create_deployment(*args)
-        docker.start_deployment(int(map_instance.id))
-        new_backends.append(map_instance)
-
     for _ in range(count):
         logging.info(f'Starting deployment of instance {next_instance_id}.')
-        thread = threading.Thread(target=deploy_and_collect, args=(
+        map_instance = docker.create_deployment(
             config,
             backend_map,
             docker_file,
             next_instance_id,
             next_free_port
-        ))
-        threads.append(thread)
-        thread.start()
+        )
+        docker.start_deployment(int(map_instance.id))
+        backend_map.backends.append(map_instance)
         next_instance_id += 1
         next_free_port += required_ports
-
-    for thread in threads:
-        thread.join()
-
-    backend_map.backends.extend(new_backends)
 
     logging.info(f'Completed deployment of {count} instances.')
 
@@ -88,17 +74,9 @@ def destroy_all():
 
     instance_ids = all_running_instances()
 
-    threads = []
-
     for instance_id in instance_ids:
         logging.info(f'Starting destruction of instance {instance_id}.')
-        thread = threading.Thread(target=docker.delete_deployment,
-                                  args=(instance_id,))
-        threads.append(thread)
-        thread.start()
-
-    for thread in threads:
-        thread.join()
+        docker.delete_deployment(instance_id)
 
     logging.info(f'Completed destruction of all {len(instance_ids)} instances.')
 
@@ -118,14 +96,9 @@ def restart_all():
     logging.info('Restarting all instances.')
     instance_ids = all_running_instances()
 
-    threads = []
-
     for instance_id in instance_ids:
         logging.info(f'Starting restart of instance {instance_id}.')
-        thread = threading.Thread(target=restart_instance,
-                                  args=(instance_id,))
-        threads.append(thread)
-        thread.start()
+        restart_instance(instance_id)
 
 
 def all_running_instances():

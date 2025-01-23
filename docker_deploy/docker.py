@@ -10,19 +10,20 @@ from docker_deploy import config_lib
 DEPLOY_DIR = Path("deployments")
 DEPLOY_DIR.mkdir(exist_ok=True)
 
+
 def load_compose():
     if shutil.which("docker-compose") is not None:
         return ["docker-compose"]
     try:
-        result = subprocess.run(['docker', 'compose', '--version'], 
-                                stdout=subprocess.PIPE, 
-                                stderr=subprocess.PIPE, 
+        result = subprocess.run(['docker', 'compose', '--version'],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
                                 text=True)
-        
+
         if result.returncode == 0:
             return ['docker', 'compose']
         raise FileNotFoundError("Docker Compose could not be found")
-    
+
     except FileNotFoundError:
         raise FileNotFoundError("Docker Compose could not be found")
 

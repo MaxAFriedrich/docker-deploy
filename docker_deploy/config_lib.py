@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 import yaml
 
@@ -34,6 +35,7 @@ class Config:
     launch_command: dict[str]
     stop_command: dict[str]
     boxes: list[Box]
+    inventory: Optional[str] = None
 
 
 def load_config(file_path: str) -> Config:
@@ -53,5 +55,6 @@ def load_config(file_path: str) -> Config:
             stop_command=data['stop_command'],
             boxes=[Box(name=box['name'],
                        services=[Service(**service) for service in
-                                 box['services']]) for box in data['boxes']]
+                                 box['services']]) for box in data['boxes']],
+            inventory=data.get('inventory')
         )
