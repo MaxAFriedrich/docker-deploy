@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 class Task(dict):
 
     def __init__(self, name: str, action: str, args: dict):
@@ -22,6 +25,9 @@ class Mkdir(Task):
 class Copy(Task):
 
     def __init__(self, name: str, src: str, dest: str):
+        if Path(src).is_dir():
+            src = src.rstrip('/')+"/."
+            dest = dest.rstrip('/')
         super().__init__(name, 'copy', {'src': src, 'dest': dest})
 
 
@@ -39,10 +45,13 @@ class Rm(Task):
 
 class DockerCompose(Task):
 
-    def __init__(self, name: str, state: str, path: str):
-        super().__init__(name, 'community.docker.docker_compose_v2', {
-            'state': state,
-            'project_src': path,
-            'remove_orphans': True,
-            'recreate': "always"
-        })
+    def __init__(self, name: str, args: str, path: str):
+        super().__init__(
+            name,
+            'command',
+            {
+                'cmd': f"bash -c 'if command -v docker-compose &> /dev/null; "
+                       f"then docker-compose {args}; else docker compose "
+                       f"{args}; fi'",
+                'chdir': path
+            })

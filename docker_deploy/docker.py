@@ -179,7 +179,7 @@ def start_deployment(instance_id: int) -> list[Task]:
     return [
         DockerCompose(
             name="Start deployment",
-            state="present",
+            args="up -d --build --force-recreate",
             path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
@@ -192,7 +192,7 @@ def stop_deployment(instance_id: int) -> list[Task]:
     return [
         DockerCompose(
             name="Stop deployment",
-            state="stopped",
+            args="down",
             path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
@@ -207,7 +207,7 @@ def delete_deployment(instance_id: int) -> list[Task]:
     return [
         DockerCompose(
             name="Delete deployment",
-            state="absent",
+            args="rm --force --stop",
             path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         ),
         Rm(
