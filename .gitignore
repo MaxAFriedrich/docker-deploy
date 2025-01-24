@@ -6,3 +6,4 @@ deploy.log
 lb.log
 lb-pid.txt
 session-server-pid.txt
+generated_playbook.yml

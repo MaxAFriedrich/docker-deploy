@@ -15,38 +15,60 @@ class Play(dict):
     def __init__(self, name: str, tasks: list[Task], hosts: list[str]):
         super().__init__()
         self['name'] = name
-        self['tasks'] = tasks
         self['hosts'] = hosts
+        self['tasks'] = tasks
+
+    def to_dict(self):
+        return {
+            "name": self['name'],
+            "hosts": self['hosts'],
+            "tasks": [task.to_dict() for task in self['tasks']]
+        }
 
 
 class Playbook(dict):
 
-    def __init__(self, name: str, plays: list[Play]):
+    def __init__(self, plays: list[Play]):
         super().__init__()
-        self['name'] = name
         self['plays'] = plays
+
+    def to_dict(self):
+        return [play.to_dict() for play in self['plays']]
 
     def write(self, file_path: str):
         with open(file_path, 'w') as file:
-            yaml.dump(self, file)
+            yaml.dump(self.to_dict(), file)
 
     def run(self, inventory_file: str | None):
-        playbook_tmp = tempfile.NamedTemporaryFile(delete=False)
-        self.write(playbook_tmp.name)
+        playbook_tmp = "generated_playbook.yml"
+        self.write(playbook_tmp)
+        args = ['ansible-playbook', playbook_tmp]
+        if inventory_file is not None:
+            args.extend(['-i', inventory_file])
 
-        result = subprocess.run(
-            ['ansible-playbook', playbook_tmp.name, '-i', inventory_file],
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        logging.info(result.stdout)
+        print(" ".join(args))
+        try:
+            result = subprocess.run(
+                args,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            logging.info(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logging.error(
+                f"Command '{e.cmd}' returned non-zero exit status "
+                f"{e.returncode}.")
+            logging.error(e.stderr)
+            logging.error(e.stdout)
 
 
 def get_hostnames(inventory_file: str) -> list[str]:
     loader = DataLoader()
     inventory = InventoryManager(loader=loader, sources=[inventory_file])
-    hostnames = inventory.get_hosts()
+    hostnames = []
+    for host in inventory.get_hosts():
+        hostnames.append(str(host.name))
     if len(hostnames) == 0:
         hostnames = ['localhost']
     return hostnames
@@ -57,6 +79,8 @@ def next_hostname(possible_hosts: list[str], backends: list[Instance]):
     for backend in backends:
         for service in backend.services:
             host = service.host.split(':')[0]
+            if host == '127.0.0.1':
+                continue
             if host not in backend_counts:
                 logging.error(f"Host {host} not found in inventory.")
                 continue

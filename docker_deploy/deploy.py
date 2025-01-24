@@ -201,7 +201,7 @@ def main():
         tasks=[
             docker.init_deployment_dir()
         ],
-        hosts=['all']
+        hosts=['all'] if config.inventory is None else ['localhost']
     )]
 
     backend_map = backend_map_lib.build_backend_map_base(
@@ -256,7 +256,7 @@ def main():
     elif args.command == 'ids':
         print_ids(backend_map.backends)
 
-    Playbook('deploy', plays).run(config.inventory)
+    Playbook(plays).run(config.inventory)
 
 
 if __name__ == '__main__':

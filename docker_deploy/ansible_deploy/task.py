@@ -6,6 +6,12 @@ class Task(dict):
         self['action'] = action
         self['args'] = args
 
+    def to_dict(self):
+        return {
+            "name": self['name'],
+            self['action']: self['args']
+        }
+
 
 class Mkdir(Task):
 
@@ -34,7 +40,7 @@ class Rm(Task):
 class DockerCompose(Task):
 
     def __init__(self, name: str, state: str, path: str):
-        super().__init__(name, 'docker_compose_v2', {
+        super().__init__(name, 'community.docker.docker_compose_v2', {
             'state': state,
             'project_src': path,
             'remove_orphans': True,

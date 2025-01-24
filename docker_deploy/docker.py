@@ -140,7 +140,7 @@ def create_deployment(
     tasks = []
     docker_file = yaml.safe_load(docker_file)
 
-    target_dir = DEPLOY_DIR / str(instance_id)
+    target_dir = "{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id)
 
     tasks.append(Copy(
         name="Copy target directory",
@@ -179,8 +179,8 @@ def start_deployment(instance_id: int) -> list[Task]:
     return [
         DockerCompose(
             name="Start deployment",
-            state="started",
-            path=str(DEPLOY_DIR / str(instance_id))
+            state="present",
+            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
 
@@ -193,7 +193,7 @@ def stop_deployment(instance_id: int) -> list[Task]:
         DockerCompose(
             name="Stop deployment",
             state="stopped",
-            path=str(DEPLOY_DIR / str(instance_id))
+            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
 
@@ -208,10 +208,10 @@ def delete_deployment(instance_id: int) -> list[Task]:
         DockerCompose(
             name="Delete deployment",
             state="absent",
-            path=str(DEPLOY_DIR / str(instance_id))
+            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         ),
         Rm(
             name="Delete deployment directory",
-            path=str(DEPLOY_DIR / str(instance_id))
+            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
