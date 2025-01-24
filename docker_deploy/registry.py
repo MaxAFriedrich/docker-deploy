@@ -84,9 +84,9 @@ def convert_buildable(docker_compose: dict, registry_url: str,
 def build(docker_compose: str, registry_url: str, cwd: str) -> str:
     docker_compose = yaml.safe_load(docker_compose)
 
-    # images = extract_images(docker_compose)
-    # image_tags = [pull_push_image(image, registry_url) for image in images]
-    # docker_compose = replace_images(docker_compose, images, image_tags)
+    images = extract_images(docker_compose)
+    image_tags = [pull_push_image(image, registry_url) for image in images]
+    docker_compose = replace_images(docker_compose, images, image_tags)
 
     docker_compose = convert_buildable(docker_compose, registry_url, cwd)
 
