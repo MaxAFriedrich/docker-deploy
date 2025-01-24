@@ -3,7 +3,7 @@ import logging
 import subprocess
 from pathlib import Path
 
-from docker_deploy import backend_map_lib
+from docker_deploy import backend_map_lib, registry
 from docker_deploy import config_lib
 from docker_deploy import docker
 from docker_deploy.ansible_deploy import Play, Playbook, get_hostnames, \
@@ -42,6 +42,10 @@ def deploy_instances(
 
     with open(Path(config.target) / 'docker-compose.yml', 'r') as file:
         docker_file = file.read()
+
+    if config.registry is not None and len(backend_map.backends) == 0:
+        docker_file = registry.build(docker_file, config.registry,
+                                     config.target)
 
     for _ in range(count):
         # logging.info(f'Starting deployment of instance {next_instance_id}.')

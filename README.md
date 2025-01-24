@@ -92,6 +92,8 @@ The script expects a `config.yml` file in the current directory. The configurati
             - `description`: A description of the service.
             - `port`: The port to bind the service to.
             - `protocol`: The protocol to use for the service, that the load balancer supports.
+- `inventory`: Optional ansible inventory file to run against. Default is localhost.
+- `registry`: Optional docker registry to push all images to pre-deployment and then pull during deployment. If omitted, the images will be built locally.
 
 An example configuration file is shown below:
 

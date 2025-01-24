@@ -36,6 +36,7 @@ class Config:
     stop_command: dict[str]
     boxes: list[Box]
     inventory: Optional[str] = None
+    registry: Optional[str] = None
 
 
 def load_config(file_path: str) -> Config:
@@ -56,5 +57,6 @@ def load_config(file_path: str) -> Config:
             boxes=[Box(name=box['name'],
                        services=[Service(**service) for service in
                                  box['services']]) for box in data['boxes']],
-            inventory=data.get('inventory')
+            inventory=data.get('inventory'),
+            registry=data.get('registry')
         )
