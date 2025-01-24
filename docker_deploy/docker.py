@@ -46,7 +46,8 @@ def no_ports_required(boxes: list[config_lib.Box]) -> int:
 
 def strip_docker_ports(docker_file: dict) -> dict:
     for service in docker_file['services']:
-        docker_file['services'][service].pop('ports')
+        if 'ports' in docker_file['services'][service]:
+            docker_file['services'][service].pop('ports')
     return docker_file
 
 
