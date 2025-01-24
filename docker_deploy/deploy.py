@@ -43,7 +43,7 @@ def deploy_instances(
     with open(Path(config.target) / 'docker-compose.yml', 'r') as file:
         docker_file = file.read()
 
-    if config.registry is not None and len(backend_map.backends) == 0:
+    if config.registry is not None:
         docker_file = registry.build(docker_file, config.registry,
                                      config.target)
 
