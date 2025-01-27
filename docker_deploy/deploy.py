@@ -1,5 +1,6 @@
 import argparse
 import logging
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -220,6 +221,8 @@ def main():
         config.boxes
     )
 
+    is_destroying_all = False
+
     if args.command == 'deploy':
         backend_map, deploy_plays = deploy_instances(
             args.count,
@@ -227,12 +230,6 @@ def main():
             config
         )
         plays.extend(deploy_plays)
-
-        backend_map_lib.save_backend_map(
-            backend_map,
-            config.output.backend_map,
-            config.launch_command
-        )
 
     elif args.command == 'destroy':
         if args.target == 'all':
@@ -245,17 +242,10 @@ def main():
             )
 
         plays.extend(destroy_plays)
-        backend_map_lib.save_backend_map(
-            backend_map,
-            config.output.backend_map,
-            config.launch_command
-        )
 
-        # if args.target == 'all':
-        #     subprocess.run(config.stop_command["command"],
-        #                    cwd=config.stop_command["context"],
-        #                    shell=True, check=True)
-        #     logging.info(f"Ran stop command: {config.stop_command}")
+        if args.target == 'all':
+            is_destroying_all = True
+
     elif args.command == 'restart':
         if args.target == 'all':
             restart_plays = restart_all(backend_map.backends)
@@ -266,9 +256,19 @@ def main():
     elif args.command == 'ids':
         print_ids(backend_map.backends)
 
-    # TODO remove this debugging
-    print(yaml.dump(Playbook(plays).to_dict()))
-    # Playbook(plays).run(config.inventory)
+    Playbook(plays).run(config.inventory)
+
+    backend_map_lib.save_backend_map(
+        backend_map,
+        config.output.backend_map,
+        config.launch_command
+    )
+
+    if is_destroying_all:
+        subprocess.run(config.stop_command["command"],
+                       cwd=config.stop_command["context"],
+                       shell=True, check=True)
+        logging.info(f"Ran stop command: {config.stop_command}")
 
 
 if __name__ == '__main__':
