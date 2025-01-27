@@ -1,13 +1,14 @@
 import argparse
 import logging
-import subprocess
 from pathlib import Path
+
+import yaml
 
 from docker_deploy import backend_map_lib, registry
 from docker_deploy import config_lib
 from docker_deploy import docker
 from docker_deploy.ansible_deploy import Play, Playbook, get_hostnames, \
-    next_hostname, get_hosts_for_instance
+    next_hostname, get_host_for_instance
 
 # Set up logging
 logging.basicConfig(filename='deploy.log', level=logging.INFO,
@@ -78,25 +79,32 @@ def destroy_instance(
         instance_id,
         instances: list[backend_map_lib.Instance]
 ) -> (list[backend_map_lib.Instance], list[Play]):
+    instance_index = get_instance_index(instance_id, instances)
+
+    if instance_index is None:
+        logging.error(f'Instance {instance_id} does not exist.')
+        return instances, []
+
     logging.info(f'Destroying instance {instance_id}.')
 
-    # if not (docker.DEPLOY_DIR / instance_id).exists():
-    #     logging.error(f'Instance {instance_id} does not exist.')
-    #     return instances
-
-    # docker.delete_deployment(instance_id)
     plays = [Play(
         name=f'Destroy Instance {instance_id}',
         tasks=docker.delete_deployment(instance_id),
-        hosts=get_hosts_for_instance(instance_id, instances)
+        hosts=[get_host_for_instance(instance_id, instances)]
     )]
 
+    instances.pop(instance_index)
+
+    return instances, plays
+
+
+def get_instance_index(instance_id, instances):
+    instance_index = None
     for i in range(len(instances)):
         if instances[i].id == instance_id:
-            del instances[i]
+            instance_index = i
             break
-
-    return instances
+    return instance_index
 
 
 def destroy_all(instances) -> list[Play]:
@@ -109,11 +117,10 @@ def destroy_all(instances) -> list[Play]:
     for instance_id in instance_ids:
         logging.info(f'Starting destruction of instance {instance_id}.')
 
-        # docker.delete_deployment(instance_id)
         plays.append(Play(
             name=f'Destroy Instance {instance_id}',
             tasks=docker.delete_deployment(instance_id),
-            hosts=get_hosts_for_instance(instance_id, instances)
+            hosts=[get_host_for_instance(instance_id, instances)]
         ))
 
     logging.info(f'Completed destruction of all {len(instance_ids)} instances.')
@@ -122,6 +129,12 @@ def destroy_all(instances) -> list[Play]:
 
 
 def restart_instance(instance_id, instances) -> list[Play]:
+    instance_index = get_instance_index(instance_id, instances)
+
+    if instance_index is None:
+        logging.error(f'Instance {instance_id} does not exist.')
+        return []
+
     logging.info(f'Restarting instance {instance_id}.')
     tasks = []
     tasks.extend(docker.stop_deployment(instance_id))
@@ -132,16 +145,9 @@ def restart_instance(instance_id, instances) -> list[Play]:
         Play(
             name=f'Stop Instance {instance_id}',
             tasks=tasks,
-            hosts=get_hosts_for_instance(instance_id, instances)
+            hosts=[get_host_for_instance(instance_id, instances)]
         )
     ]
-
-    # if not (docker.DEPLOY_DIR / instance_id).exists():
-    #     logging.error(f'Instance {instance_id} does not exist.')
-    #     return
-
-    # docker.stop_deployment(instance_id)
-    # docker.start_deployment(instance_id)
 
     return plays
 
@@ -205,7 +211,7 @@ def main():
         tasks=[
             docker.init_deployment_dir()
         ],
-        hosts=['all'] if config.inventory is None else ['localhost']
+        hosts=['all'] if config.inventory is not None else ['localhost']
     )]
 
     backend_map = backend_map_lib.build_backend_map_base(
@@ -245,11 +251,11 @@ def main():
             config.launch_command
         )
 
-        if args.target == 'all':
-            subprocess.run(config.stop_command["command"],
-                           cwd=config.stop_command["context"],
-                           shell=True, check=True)
-            logging.info(f"Ran stop command: {config.stop_command}")
+        # if args.target == 'all':
+        #     subprocess.run(config.stop_command["command"],
+        #                    cwd=config.stop_command["context"],
+        #                    shell=True, check=True)
+        #     logging.info(f"Ran stop command: {config.stop_command}")
     elif args.command == 'restart':
         if args.target == 'all':
             restart_plays = restart_all(backend_map.backends)
@@ -260,7 +266,9 @@ def main():
     elif args.command == 'ids':
         print_ids(backend_map.backends)
 
-    Playbook(plays).run(config.inventory)
+    # TODO remove this debugging
+    print(yaml.dump(Playbook(plays).to_dict()))
+    # Playbook(plays).run(config.inventory)
 
 
 if __name__ == '__main__':

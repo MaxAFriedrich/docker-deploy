@@ -126,9 +126,9 @@ def save_backend_map(backend_map: BackendMap, output_file: str,
         yaml.dump(backend_map.to_dict(), file)
     logging.info(f'Backend map saved to {output_file}')
 
-    subprocess.run(launch_command["command"], cwd=launch_command["context"],
-                   shell=True, check=True)
-    logging.info(f'Launch command executed: {launch_command}')
+    # subprocess.run(launch_command["command"], cwd=launch_command["context"],
+    #                shell=True, check=True)
+    # logging.info(f'Launch command executed: {launch_command}')
 
 
 def load_backend_map(file_path: str) -> BackendMap:

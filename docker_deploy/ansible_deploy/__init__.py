@@ -89,13 +89,19 @@ def next_hostname(possible_hosts: list[str], backends: list[Instance]):
     return min(backend_counts, key=backend_counts.get)
 
 
-def get_hosts_for_instance(
+def get_host_for_instance(
         instance_id: int, instances: list[Instance]
-) -> list[str]:
-    hosts = []
+) -> str:
+    hosts = set()
     for instance in instances:
         if instance.id != instance_id:
             continue
         for service in instance.services:
-            hosts.append(service.host.split(':')[0])
-    return hosts
+            hosts.add(service.host.split(':')[0])
+    if len(hosts) == 0:
+        hosts.add('localhost')
+    if len(hosts) > 1:
+        logging.error(
+            f"Instance {instance_id} has services on multiple hosts.")
+        return
+    return list(hosts)[0]
