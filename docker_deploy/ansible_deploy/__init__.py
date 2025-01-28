@@ -23,7 +23,7 @@ class Play(dict):
             "name": self['name'],
             "hosts": self['hosts'],
             "tasks": [task.to_dict() for task in self['tasks']],
-            "gather_facts": "False"
+            "gather_facts": False
         }
 
 
