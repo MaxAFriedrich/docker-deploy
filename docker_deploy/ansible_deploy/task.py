@@ -26,9 +26,17 @@ class Copy(Task):
 
     def __init__(self, name: str, src: str, dest: str):
         if Path(src).is_dir():
-            src = src.rstrip('/')+"/."
+            src = src.rstrip('/') + "/."
             dest = dest.rstrip('/')
         super().__init__(name, 'copy', {'src': src, 'dest': dest})
+
+
+class LocalCopy(Task):
+
+    def __init__(self, name: str, src: str, dest: str, is_dir: bool = False):
+        recursive = "-r" if is_dir else ""
+        super().__init__(name, 'command',
+                         {'cmd': f"cp {recursive} {src} {dest}"})
 
 
 class WriteFile(Task):

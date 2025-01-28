@@ -3,13 +3,12 @@ import logging
 import subprocess
 from pathlib import Path
 
-import yaml
-
 from docker_deploy import backend_map_lib, registry
 from docker_deploy import config_lib
 from docker_deploy import docker
 from docker_deploy.ansible_deploy import Play, Playbook, get_hostnames, \
     next_hostname, get_host_for_instance
+from docker_deploy.ansible_deploy.task import Copy
 
 # Set up logging
 logging.basicConfig(filename='deploy.log', level=logging.INFO,
@@ -207,13 +206,7 @@ def main():
 
     args = parser.parse_args()
 
-    plays: list[Play] = [Play(
-        name='Init Deploy Dir',
-        tasks=[
-            docker.init_deployment_dir()
-        ],
-        hosts=['all'] if config.inventory is not None else ['localhost']
-    )]
+    plays: list[Play] = []
 
     backend_map = backend_map_lib.build_backend_map_base(
         config.output.backend_map,
@@ -224,6 +217,19 @@ def main():
     is_destroying_all = False
 
     if args.command == 'deploy':
+        if len(backend_map.backends) == 0:
+            plays.append(Play(
+                name='Init Deploy Dir',
+                tasks=[
+                    docker.init_deployment_dir(),
+                    Copy(
+                        name="Copy docker dir to deploy dir",
+                        src=config.target,
+                        dest="/home/{{ansible_user}}/deployments/docker"
+                    )
+                ],
+                hosts=['all'] if config.inventory is not None else ['localhost']
+            ))
         backend_map, deploy_plays = deploy_instances(
             args.count,
             backend_map,

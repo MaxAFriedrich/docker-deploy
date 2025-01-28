@@ -6,15 +6,15 @@ import yaml
 
 from docker_deploy import backend_map_lib
 from docker_deploy import config_lib
-from docker_deploy.ansible_deploy.task import Mkdir, Task, Copy, WriteFile, \
-    DockerCompose, Rm
+from docker_deploy.ansible_deploy.task import Mkdir, Task, WriteFile, \
+    DockerCompose, Rm, LocalCopy
 
 DEPLOY_DIR = Path("deployments")
 
 
 def init_deployment_dir() -> Task:
     return Mkdir(name="Create deployment directory",
-                 path="{{ansible_env.HOME}}/deployments")
+                 path="/home/{{ansible_user}}/deployments")
 
 
 # def load_compose():
@@ -141,12 +141,13 @@ def create_deployment(
     tasks = []
     docker_file = yaml.safe_load(docker_file)
 
-    target_dir = "{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id)
+    target_dir = "/home/{{ansible_user}}" / DEPLOY_DIR / str(instance_id)
 
-    tasks.append(Copy(
+    tasks.append(LocalCopy(
         name="Copy target directory",
-        src=config.target,
-        dest=str(target_dir)
+        src="/home/{{ansible_user}}/deployments/docker",
+        dest=str(target_dir),
+        is_dir=True
     ))
 
     if deploy_host == "localhost":
@@ -181,7 +182,7 @@ def start_deployment(instance_id: int) -> list[Task]:
         DockerCompose(
             name="Start deployment",
             args="up -d --build --force-recreate",
-            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
+            path=str("/home/{{ansible_user}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
 
@@ -194,7 +195,7 @@ def stop_deployment(instance_id: int) -> list[Task]:
         DockerCompose(
             name="Stop deployment",
             args="down",
-            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
+            path=str("/home/{{ansible_user}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
 
@@ -209,10 +210,10 @@ def delete_deployment(instance_id: int) -> list[Task]:
         DockerCompose(
             name="Delete deployment",
             args="rm --force --stop",
-            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
+            path=str("/home/{{ansible_user}}" / DEPLOY_DIR / str(instance_id))
         ),
         Rm(
             name="Delete deployment directory",
-            path=str("{{ansible_env.HOME}}" / DEPLOY_DIR / str(instance_id))
+            path=str("/home/{{ansible_user}}" / DEPLOY_DIR / str(instance_id))
         )
     ]
