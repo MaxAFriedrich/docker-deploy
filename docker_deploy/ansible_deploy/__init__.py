@@ -46,6 +46,14 @@ class Playbook(dict):
         args = ['ansible-playbook', playbook_tmp]
         if inventory_file is not None:
             args.extend(['-i', inventory_file])
+        else:
+            user = subprocess.run(
+                ['whoami'],
+                check=True,
+                capture_output=True,
+                text=True
+            ).stdout.strip()
+            args.extend(['-u', user])
 
         print(" ".join(args))
         try:
